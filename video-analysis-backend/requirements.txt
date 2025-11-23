@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+celery
+redis
+python-multipart
+pydantic
+aiofiles
+whisper
+opencv-python
+numpy
+torch
+transformers
+faster_whisper
+pillow
