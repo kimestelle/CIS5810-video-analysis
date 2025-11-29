@@ -17,6 +17,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const onProgress = (percent: number, step: string) => {
+    console.log(`Progress: ${percent}% - ${step}`);
     setProgress({ percent, step });
   }
 

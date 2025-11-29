@@ -1,3 +1,4 @@
+#run commmand: uvicorn main:app
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -71,9 +72,9 @@ def analyze_video_endpoint(payload: AnalyzeVideoRequest):
 def get_analysis(job_id: str):
     res = AsyncResult(job_id, app=celery_app)
 
-    # PROGRESS is a custom state we used in update_state
     if res.state == "PROGRESS":
         meta = res.info or {}
+        print(meta.get("percent", 0))
         return {
             "status": "processing",
             "progress": {

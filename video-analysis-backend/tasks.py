@@ -1,4 +1,5 @@
-# tasks.py
+# run command: celery -A tasks.celery_app worker --loglevel=info
+
 import os
 from celery import Celery
 from analysis_pipeline import (
