@@ -18,6 +18,12 @@ import torch
 from faster_whisper import WhisperModel
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
+import moviepy.editor as mp
+from deepface import DeepFace
+import numpy as np
+from tqdm import tqdm
+from typing import List, Dict, Any
+
 
 # ==========
 # Lazy-loaded global models (so you don't reload them on every call)
@@ -238,6 +244,76 @@ def combine_scenes_with_transcript(
 
     return combined
 
+#7. analyze emotions
+def analyze_emotions(video_path, sample_rate=1.0):
+    print("Analyzing emotions with DeepFace...")
+
+    clip = mp.VideoFileClip(video_path)
+    duration = clip.duration
+    times = np.arange(0, duration, sample_rate)
+
+    emotions = []
+    for t in tqdm(times, desc="Emotion detection"):
+        frame = clip.get_frame(t)
+
+        h, w, _ = frame.shape
+        scale = 800 / max(h, w) if max(h, w) > 800 else 1.0
+        frame_resized = cv2.resize(frame, (int(w*scale), int(h*scale)))
+
+        try:
+            results = DeepFace.analyze(
+                frame_resized,
+                actions=['emotion'],
+                enforce_detection=False,
+                detector_backend='retinaface'
+            )
+
+            if not isinstance(results, list):
+                results = [results]
+
+            if len(results) > 0:
+                for face_result in results:
+                    scores = {k: float(v) for k, v in face_result.get("emotion", {}).items()}
+                    emotions.append({
+                        "time": float(t),
+                        "dominant_emotion": face_result.get("dominant_emotion", "unknown"),
+                        "emotion_scores": scores,
+                        "num_faces": len(results)
+                    })
+            else:
+                emotions.append({
+                    "time": float(t),
+                    "dominant_emotion": "no_face_detected",
+                    "emotion_scores": {},
+                    "num_faces": 0
+                })
+
+        except Exception as e:
+            emotions.append({
+                "time": float(t),
+                "dominant_emotion": "error",
+                "emotion_scores": {},
+                "num_faces": 0,
+                "error": str(e)
+            })
+    return emotions
+
+#8. merge text and emotions
+def merge_text_and_emotions(transcript_text, emotions):
+    print("Merging transcript and emotion data...")
+
+    sentences = [s.strip() for s in transcript_text.split(". ") if s.strip()]
+    merged = []
+
+    for i, line in enumerate(sentences):
+        merged.append({
+            "text": line,
+            "emotion": emotions[i]["dominant_emotion"] if i < len(emotions) else "neutral",
+            "emotion_scores": emotions[i]["emotion_scores"] if i < len(emotions) else {},
+            "time": emotions[i]["time"] if i < len(emotions) else None
+        })
+    return merged
+
 
 # 7. full pipeline
 def analyze_video(
@@ -247,25 +323,7 @@ def analyze_video(
     scene_threshold: float = 0.6,
     scene_max_gap: int = 1,
 ) -> Dict[str, Any]:
-    """
-    Full local video analysis pipeline:
-
-      - Transcribe with faster-whisper
-      - Extract frames with OpenCV (default 1 fps)
-      - Caption frames with BLIP
-      - Cluster captions into scenes
-      - Attach dialogue lines for each scene
-
-    Returns JSON-serializable dict:
-    {
-      "transcript_text": str,
-      "transcript_segments": [...],
-      "frame_captions": [...],
-      "scenes": [...],
-      "combined_scenes": [...],
-      "language": str
-    }
-    """
+    
     video_path = str(Path(video_path))
 
     # 1. Transcribe
@@ -291,6 +349,9 @@ def analyze_video(
     # 5. Attach dialogue per scene
     combined_scenes = combine_scenes_with_transcript(scenes, transcript_segments)
 
+    emotions = analyze_emotions(video_path, sample_rate=1)
+    merged = merge_text_and_emotions(transcript_text, emotions)
+
     return {
         "transcript_text": transcript_text,
         "transcript_segments": transcript_segments,
@@ -298,4 +359,5 @@ def analyze_video(
         "scenes": scenes,
         "combined_scenes": combined_scenes,
         "language": language,
+        "merged_text_emotions": merged,
     }

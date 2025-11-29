@@ -12,3 +12,9 @@ torch
 transformers
 faster_whisper
 pillow
+moviepy==1.0.3
+deepface
+tf-keras
+tqdm
+pandas
+scikit-learn

@@ -8,6 +8,8 @@ from analysis_pipeline import (
     caption_frames,
     categorize_scenes,
     combine_scenes_with_transcript,
+    analyze_emotions,
+    merge_text_and_emotions,
 )
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
@@ -59,7 +61,7 @@ def process_video_task(self, video_path: str) -> dict:
         # 4. Scenes
         self.update_state(
             state="PROGRESS",
-            meta={"percent": 80, "step": "grouping scenes"},
+            meta={"percent": 70, "step": "grouping scenes"},
         )
         scenes = categorize_scenes(
             captions=frame_captions,
@@ -71,10 +73,19 @@ def process_video_task(self, video_path: str) -> dict:
         # 5. Combine with transcript
         self.update_state(
             state="PROGRESS",
-            meta={"percent": 90, "step": "attaching dialogue"},
+            meta={"percent": 80, "step": "attaching dialogue"},
         )
         combined_scenes = combine_scenes_with_transcript(scenes, transcript_segments)
 
+        # 6. Emotion analysis
+        self.update_state(
+            state="PROGRESS",
+            meta={"percent": 90, "step": "analyzing emotions"},
+        )
+
+        emotions = analyze_emotions(video_path, sample_rate=1)
+        merged = merge_text_and_emotions(transcript_text, emotions)
+        # 7. Final result
         result = {
             "transcript_text": transcript_text,
             "transcript_segments": transcript_segments,
@@ -82,8 +93,8 @@ def process_video_task(self, video_path: str) -> dict:
             "scenes": scenes,
             "combined_scenes": combined_scenes,
             "language": language,
+            "merged_text_emotions": merged,
         }
-
         # Final
         self.update_state(
             state="PROGRESS",
