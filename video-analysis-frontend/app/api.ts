@@ -1,5 +1,7 @@
+// api.ts
 const BASE_URL = "http://localhost:8000";
 
+// ----------------- 타입 정의 -----------------
 export interface HealthResponse {
   Hello: string;
 }
@@ -7,50 +9,6 @@ export interface HealthResponse {
 export interface UploadVideoResponse {
   message: string;
   filename: string;
-}
-
-export async function pingBackend(
-  signal?: AbortSignal
-): Promise<HealthResponse> {
-  const res = await fetch(`${BASE_URL}/`, {
-    method: "GET",
-    signal,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Backend health check failed: ${res.status} ${res.statusText}`);
-  }
-
-  return res.json();
-}
-
-export async function uploadVideo(
-  file: File,
-  signal?: AbortSignal
-): Promise<UploadVideoResponse> {
-  const formData = new FormData();
-  formData.append("video_file", file);
-
-  const res = await fetch(`${BASE_URL}/upload-video/`, {
-    method: "POST",
-    body: formData,
-    signal,
-  });
-
-  if (!res.ok) {
-    let detail = `${res.status} ${res.statusText}`;
-    try {
-      const data = await res.json();
-      if (typeof data.detail === "string") {
-        detail = data.detail;
-      } else if (typeof data.message === "string") {
-        detail = data.message;
-      }
-    } catch {}
-    throw new Error(`Video upload failed: ${detail}`);
-  }
-
-  return res.json();
 }
 
 export interface TranscriptSegment {
@@ -81,21 +39,16 @@ export interface AnalyzeVideoResponse {
   language: string | null;
 }
 
-export interface UploadVideoResponse {
-  message: string;
-  filename: string;
-}
-
 export interface StartAnalysisResponse {
   job_id: string;
 }
 
 export interface AnalysisStatusPending {
-    status: "pending" | "processing";
-    progress?: {
-        percent?: number;
-        step?: string;
-    };
+  status: "pending" | "processing";
+  progress?: {
+    percent?: number;
+    step?: string;
+  };
 }
 
 export interface AnalysisStatusDone {
@@ -113,10 +66,37 @@ export type AnalysisStatusResponse =
   | AnalysisStatusDone
   | AnalysisStatusFailed;
 
-export async function startAnalysis(
-  videoFilename: string,
-  signal?: AbortSignal
-): Promise<StartAnalysisResponse> {
+// ----------------- API 함수 -----------------
+export async function pingBackend(signal?: AbortSignal): Promise<HealthResponse> {
+  const res = await fetch(`${BASE_URL}/`, { method: "GET", signal });
+  if (!res.ok) throw new Error(`Backend health check failed: ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+export async function uploadVideo(file: File, signal?: AbortSignal): Promise<UploadVideoResponse> {
+  const formData = new FormData();
+  formData.append("video_file", file);
+
+  const res = await fetch(`${BASE_URL}/upload-video/`, {
+    method: "POST",
+    body: formData,
+    signal,
+  });
+
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const data = await res.json();
+      if (typeof data.detail === "string") detail = data.detail;
+      else if (typeof data.message === "string") detail = data.message;
+    } catch {}
+    throw new Error(`Video upload failed: ${detail}`);
+  }
+
+  return res.json();
+}
+
+export async function startAnalysis(videoFilename: string, signal?: AbortSignal): Promise<StartAnalysisResponse> {
   const res = await fetch(`${BASE_URL}/analyze-video/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -136,14 +116,8 @@ export async function startAnalysis(
   return res.json();
 }
 
-export async function getAnalysisStatus(
-  jobId: string,
-  signal?: AbortSignal
-): Promise<AnalysisStatusResponse> {
-  const res = await fetch(`${BASE_URL}/analysis/${jobId}`, {
-    method: "GET",
-    signal,
-  });
+export async function getAnalysisStatus(jobId: string, signal?: AbortSignal): Promise<AnalysisStatusResponse> {
+  const res = await fetch(`${BASE_URL}/analysis/${jobId}`, { method: "GET", signal });
 
   if (!res.ok) {
     let detail = `${res.status} ${res.statusText}`;
