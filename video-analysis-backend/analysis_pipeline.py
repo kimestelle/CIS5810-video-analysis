@@ -19,10 +19,25 @@ from faster_whisper import WhisperModel
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
 import moviepy.editor as mp
-from deepface import DeepFace
 import numpy as np
 from tqdm import tqdm
 from typing import List, Dict, Any
+
+from transformers import AutoImageProcessor, AutoModelForImageClassification
+
+_EMOTION_PROCESSOR: Optional[AutoImageProcessor] = None
+_EMOTION_MODEL: Optional[AutoModelForImageClassification] = None
+
+def get_emotion_model():
+    global _EMOTION_PROCESSOR, _EMOTION_MODEL
+    if _EMOTION_MODEL is None:
+        # ViT model for emotion recognition
+        model_name = "dima806/facial_emotions_image_detection"
+        _EMOTION_PROCESSOR = AutoImageProcessor.from_pretrained(model_name)
+        _EMOTION_MODEL = AutoModelForImageClassification.from_pretrained(model_name)
+        _EMOTION_MODEL.eval()
+    return _EMOTION_PROCESSOR, _EMOTION_MODEL
+
 
 
 # ==========
@@ -245,48 +260,55 @@ def combine_scenes_with_transcript(
     return combined
 
 #7. analyze emotions
-def analyze_emotions(video_path, sample_rate=1.0):
-    print("Analyzing emotions with DeepFace...")
+def analyze_emotions(video_path: str, sample_rate: float = 1.0):
+    """
+    Sample frames from the video with moviepy, run them through a
+    HuggingFace ViT emotion classifier (PyTorch-only, no TensorFlow),
+    and return the same shape of data you used before.
+    """
+    print("Analyzing emotions with HuggingFace ViT model...")
+
+    processor, model = get_emotion_model()
 
     clip = mp.VideoFileClip(video_path)
     duration = clip.duration
     times = np.arange(0, duration, sample_rate)
 
-    emotions = []
-    for t in tqdm(times, desc="Emotion detection"):
-        frame = clip.get_frame(t)
+    emotions: List[Dict[str, Any]] = []
 
+    for t in tqdm(times, desc="Emotion detection"):
+        frame = clip.get_frame(float(t))
+
+        # resize for model
         h, w, _ = frame.shape
         scale = 800 / max(h, w) if max(h, w) > 800 else 1.0
-        frame_resized = cv2.resize(frame, (int(w*scale), int(h*scale)))
+        frame_resized = cv2.resize(frame, (int(w * scale), int(h * scale)))
+
+        image = Image.fromarray(frame_resized)
 
         try:
-            results = DeepFace.analyze(
-                frame_resized,
-                actions=['emotion'],
-                enforce_detection=False,
-                detector_backend='retinaface'
-            )
+            inputs = processor(images=image, return_tensors="pt")
+            with torch.no_grad():
+                outputs = model(**inputs)
+                logits = outputs.logits[0]
+                probs = torch.softmax(logits, dim=-1)
 
-            if not isinstance(results, list):
-                results = [results]
+            top_prob, top_idx = torch.max(probs, dim=0)
+            top_idx = int(top_idx)
+            labels = model.config.id2label
+            dominant = labels[top_idx]
 
-            if len(results) > 0:
-                for face_result in results:
-                    scores = {k: float(v) for k, v in face_result.get("emotion", {}).items()}
-                    emotions.append({
-                        "time": float(t),
-                        "dominant_emotion": face_result.get("dominant_emotion", "unknown"),
-                        "emotion_scores": scores,
-                        "num_faces": len(results)
-                    })
-            else:
-                emotions.append({
-                    "time": float(t),
-                    "dominant_emotion": "no_face_detected",
-                    "emotion_scores": {},
-                    "num_faces": 0
-                })
+            scores = {
+                labels[i]: float(probs[i])
+                for i in range(len(probs))
+            }
+
+            emotions.append({
+                "time": float(t),
+                "dominant_emotion": dominant,
+                "emotion_scores": scores,
+                "num_faces": 1,
+            })
 
         except Exception as e:
             emotions.append({
@@ -294,9 +316,11 @@ def analyze_emotions(video_path, sample_rate=1.0):
                 "dominant_emotion": "error",
                 "emotion_scores": {},
                 "num_faces": 0,
-                "error": str(e)
+                "error": str(e),
             })
+
     return emotions
+
 
 #8. merge text and emotions
 def merge_text_and_emotions(transcript_text, emotions):

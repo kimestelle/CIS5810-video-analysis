@@ -9,11 +9,14 @@ whisper
 opencv-python
 numpy
 torch
+torchvision 
+torchaudio
 transformers
 faster_whisper
 pillow
 moviepy==1.0.3
 deepface
+tensorflow
 tf-keras
 tqdm
 pandas
