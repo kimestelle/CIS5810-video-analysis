@@ -1,0 +1,18 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="500" height="500" fill="url(#animatedRedGradient)"/>
+    
+<defs>
+  <linearGradient id="animatedRedGradient" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#77b5b3ff"/>
+<stop offset="100%" stop-color="#FFE5C1"/>
+    <animateTransform 
+      attributeName="gradientTransform" 
+      type="rotate" 
+      from="0 50 50" 
+      to="360 50 50" 
+      dur="10s" 
+      repeatCount="indefinite" />
+  </linearGradient>
+</defs>
+
+</svg>

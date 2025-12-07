@@ -39,11 +39,6 @@ def get_emotion_model():
     return _EMOTION_PROCESSOR, _EMOTION_MODEL
 
 
-
-# ==========
-# Lazy-loaded global models (so you don't reload them on every call)
-# ==========
-
 _WHISPER_MODEL: Optional[WhisperModel] = None
 _BLIP_PROCESSOR: Optional[BlipProcessor] = None
 _BLIP_MODEL: Optional[BlipForConditionalGeneration] = None

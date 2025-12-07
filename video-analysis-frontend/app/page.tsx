@@ -2,6 +2,7 @@
 
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { AnalyzeVideoResponse, MergedTextEmotion, TranscriptSegment, CombinedScene } from "./api";
 
 // emotion label to UI mappings
@@ -200,15 +201,57 @@ export default function Home() {
     : inferEmotionFromText(analysis?.transcript_text ?? null);
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
+    <div className="min-h-screen bg-zinc-50 egg-background p-8">
+      <div className='flex flex-col justify-center items-center max-w-6xl mx-auto my-8 text-center'>
+      <h1>
+        {/* Comprehensive Video Analysis */}
+        <span>C</span>
+        <span>o</span>
+        <span>m</span>
+        <span>p</span>
+        <span>r</span>
+        <span>e</span>
+        <span>h</span>
+        <span>e</span>
+        <span>n</span>
+        <span>s</span>
+        <span>i</span>
+        <span>v</span>
+        <span>e</span>
+        <span> </span>
+        <span>V</span>
+        <span>i</span>
+        <span>d</span>
+        <span>e</span>
+        <span>o</span>
+        <span> </span>
+        <span>A</span>
+        <span>n</span>
+        <span>a</span>
+        <span>l</span>
+        <span>y</span>
+        <span>s</span>
+        <span>i</span>
+        <span>s</span>
+      </h1>
+      <p>by <span className="font-semibold">Ji Yoon Kang & Estelle Kim</span></p>
+      <p className='max-w-2xl mt-4'>
+        Upload a video file to analyze scenes, generate transcripts, extract captions, and detect emotions. Use a video including dialogue and human faces to experience the full features!
+      </p>
+      <p className='max-w-2xl mt-4'>
+        A pipeline of local ML models will process your video and provide detailed insights.
+      </p>
+      <p className='max-w-2xl mt-4'>
+        More info <span><Link href="/info">here &rarr;</Link></span>
+      </p>
+      </div>
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: upload & video */}
-        <div className="lg:col-span-1 bg-white dark:bg-zinc-900 rounded-xl p-6 shadow">
-          <h1 className="text-2xl font-semibold mb-4">Upload & Analyze</h1>
+        <div className="lg:col-span-1 bg-white/80 rounded-xl p-6 shadow">
 
           <label
             htmlFor="video-file"
-            className="flex items-center justify-center flex-col gap-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg p-6 cursor-pointer hover:border-zinc-400"
+            className="flex items-center justify-center flex-col gap-2 border-2 border-dashed border-zinc-300 rounded-lg p-6 cursor-pointer hover:border-zinc-400"
           >
             <svg className="w-10 h-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -218,8 +261,8 @@ export default function Home() {
                 d="M3 15a4 4 0 004 4h10a4 4 0 004-4V8a4 4 0 00-4-4h-3l-2-2H9L7 4H4a1 1 0 00-1 1v10z"
               />
             </svg>
-            <div className="text-sm text-zinc-600 dark:text-zinc-300">Click to choose a video file</div>
-            <div className="text-xs text-zinc-400 dark:text-zinc-500">MP4, MOV, WebM — keep under ~200MB</div>
+            <div className="text-sm text-zinc-600">Click to choose a video file</div>
+            <div className="text-xs text-zinc-400">MP4, MOV, WebM — keep under ~200MB</div>
             <input
               id="video-file"
               type="file"
@@ -258,10 +301,10 @@ export default function Home() {
           {progress && (
             <div className="mt-4">
               <div className="flex justify-between mb-1">
-                <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">{progress.step}</div>
-                <div className="text-sm text-zinc-600 dark:text-zinc-400">{progress.percent}%</div>
+                <div className="text-sm font-medium text-zinc-700">{progress.step}</div>
+                <div className="text-sm text-zinc-600">{progress.percent}%</div>
               </div>
-              <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-3 rounded-full">
+              <div className="w-full bg-zinc-200 h-3 rounded-full">
                 <div
                   className="h-3 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
                   style={{ width: `${progress.percent}%` }}
@@ -278,7 +321,7 @@ export default function Home() {
         </div>
 
         {/* RIGHT: analysis */}
-        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 rounded-xl p-6 shadow overflow-auto">
+        <div className="lg:col-span-2 bg-white/80 rounded-xl p-6 shadow overflow-auto">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold">Analysis Result</h2>
@@ -306,7 +349,7 @@ export default function Home() {
               <div className="col-span-2 space-y-4">
                 {/* Transcript with emotion bars driven by merged_text_emotions if available */}
                 <div>
-                  <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">Transcript</h3>
+                  <h3 className="text-sm font-semibold text-zinc-700 mb-2">Transcript</h3>
                   <div className="flex flex-col gap-1">
                     {(analysis.transcript_segments || []).map((seg: TranscriptSegment, idx: number) => {
                       const merged = mergedEmotions?.[idx];
@@ -316,7 +359,7 @@ export default function Home() {
                       return (
                         <div key={idx} className="flex items-center gap-2">
                           <div className={`w-2 h-6 rounded ${emo.color}`} title={emo.label}></div>
-                          <div className="text-sm text-zinc-800 dark:text-zinc-100">{seg.text}</div>
+                          <div className="text-sm text-zinc-800">{seg.text}</div>
                         </div>
                       );
                     })}
@@ -325,11 +368,11 @@ export default function Home() {
 
                 {/* Scenes */}
                 <div>
-                  <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">Scenes</h3>
+                  <h3 className="text-sm font-semibold text-zinc-700 mb-2">Scenes</h3>
                   <div className="space-y-3">
                     {Array.isArray(analysis.combined_scenes) && analysis.combined_scenes.length > 0 ? (
                       analysis.combined_scenes.map((s: CombinedScene, idx: number) => (
-                        <div key={idx} className="p-3 border rounded-md bg-white dark:bg-zinc-800">
+                        <div key={idx} className="p-3 border rounded-md bg-white/80">
                           <div className="flex justify-between items-start gap-2">
                             <div>
                               <div className="text-sm font-semibold">{s.description ?? "Scene"}</div>
@@ -353,7 +396,7 @@ export default function Home() {
                                   return (
                                     <div key={i} className="flex items-center gap-2">
                                       <div className={`w-2 h-5 rounded ${emo.color}`} title={emo.label}></div>
-                                      <div className="text-sm text-zinc-800 dark:text-zinc-100">{d}</div>
+                                      <div className="text-sm text-zinc-800">{d}</div>
                                     </div>
                                   );
                                 })}
@@ -371,7 +414,7 @@ export default function Home() {
 
               {/* RIGHT: captions + emotion timeline */}
               <div>
-                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">
+                <h3 className="text-sm font-semibold text-zinc-700 mb-2">
                   Top frame captions
                 </h3>
                 <div className="space-y-2">
@@ -379,7 +422,7 @@ export default function Home() {
                     analysis.frame_captions.slice(0, 12).map((c: string, i: number) => (
                       <div
                         key={i}
-                        className="text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 p-2 rounded"
+                        className="text-sm text-zinc-800 bg-zinc-50 p-2 rounded"
                       >
                         {c}
                       </div>
@@ -391,7 +434,7 @@ export default function Home() {
 
                 {/* Emotion timeline from merged_text_emotions */}
                 <div className="mt-6">
-                  <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">
+                  <h3 className="text-sm font-semibold text-zinc-700 mb-2">
                     Emotion timeline
                   </h3>
                   {mergedEmotions && mergedEmotions.length > 0 ? (
@@ -410,7 +453,7 @@ export default function Home() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-zinc-700 dark:text-zinc-200">
+                              <div className="text-zinc-700">
                                 {shortText(m.text, 120)}
                               </div>
                             </div>
@@ -429,7 +472,7 @@ export default function Home() {
                       navigator.clipboard?.writeText(JSON.stringify(analysis, null, 2));
                       alert("Copied result JSON to clipboard");
                     }}
-                    className="px-3 py-2 rounded bg-zinc-100 dark:bg-zinc-800 text-sm"
+                    className="px-3 py-2 rounded bg-zinc-100 text-sm"
                   >
                     Copy JSON
                   </button>
