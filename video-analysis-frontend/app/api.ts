@@ -1,7 +1,6 @@
 // api.ts
 const BASE_URL = "http://localhost:8000";
 
-// ----------------- 타입 정의 -----------------
 export interface HealthResponse {
   Hello: string;
 }
@@ -30,6 +29,13 @@ export interface CombinedScene {
   dialogue: string[];
 }
 
+export interface MergedTextEmotion {
+  text: string;
+  emotion: string;
+  emotion_scores: Record<string, number>;
+  time: number | null;
+}
+
 export interface AnalyzeVideoResponse {
   transcript_text: string;
   transcript_segments: TranscriptSegment[];
@@ -37,7 +43,9 @@ export interface AnalyzeVideoResponse {
   scenes: Scene[];
   combined_scenes: CombinedScene[];
   language: string | null;
+  merged_text_emotions: MergedTextEmotion[];
 }
+
 
 export interface StartAnalysisResponse {
   job_id: string;
@@ -66,7 +74,7 @@ export type AnalysisStatusResponse =
   | AnalysisStatusDone
   | AnalysisStatusFailed;
 
-// ----------------- API 함수 -----------------
+
 export async function pingBackend(signal?: AbortSignal): Promise<HealthResponse> {
   const res = await fetch(`${BASE_URL}/`, { method: "GET", signal });
   if (!res.ok) throw new Error(`Backend health check failed: ${res.status} ${res.statusText}`);

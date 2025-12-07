@@ -1,27 +1,26 @@
+/* main page: upload video and  */
+
 "use client";
-
 import { useState, useEffect } from "react";
+import { AnalyzeVideoResponse, MergedTextEmotion, TranscriptSegment, CombinedScene } from "./api";
 
-/**
- * page.tsx
- *
- * Works with FastAPI endpoints:
- *  - POST http://127.0.0.1:8000/upload-video/    (form field: video_file)
- *  - POST http://127.0.0.1:8000/analyze-video/   (JSON: { video_filename })
- *  - GET  http://127.0.0.1:8000/analysis/{job_id}
- *
- * Expects analysis result shape (from analysis_pipeline.py):
- * {
- *   transcript_text: string,
- *   transcript_segments: [{text: string, start: number, end: number}],
- *   frame_captions: [...],
- *   scenes: [...],
- *   combined_scenes: [...],
- *   language: string | null
- * }
- */
+// emotion label to UI mappings
+function uiForEmotionLabel(label: string | null | undefined) {
+  const l = (label || "neutral").toLowerCase();
 
-// ----------------- Helpers -----------------
+  if (l.includes("happy") || l.includes("joy")) {
+    return { label: "happy", color: "bg-emerald-200", textColor: "text-emerald-800" };
+  }
+  if (l.includes("sad") || l.includes("angry") || l.includes("fear") || l.includes("disgust")) {
+    return { label: "sad/angry", color: "bg-red-200", textColor: "text-red-800" };
+  }
+  if (l.includes("surprise")) {
+    return { label: "surprised", color: "bg-amber-200", textColor: "text-amber-800" };
+  }
+  return { label: "neutral", color: "bg-gray-200", textColor: "text-gray-800" };
+}
+
+// fallback heuristic (for when there are no backend emotions)
 function inferEmotionFromText(text: string | null) {
   if (!text || text.trim().length === 0)
     return { label: "neutral", color: "bg-gray-300", textColor: "text-gray-800" };
@@ -31,7 +30,6 @@ function inferEmotionFromText(text: string | null) {
   const positive = ["happy", "joy", "laugh", "love", "smile", "excited", "cheerful", "delight"];
   const negative = ["sad", "angry", "mad", "hate", "upset", "cry", "depressed", "annoy"];
   const surprise = ["wow", "surprise", "surprised", "oh my", "what a"];
-  const neutral = ["okay", "fine", "alright", "hm", "hmm"];
 
   let scorePos = 0,
     scoreNeg = 0,
@@ -55,32 +53,34 @@ function shortText(text: string | null, n = 300) {
   return text.slice(0, n) + "...";
 }
 
-// ----------------- Component -----------------
+async function safeJson(resp: Response) {
+  try {
+    return await resp.json();
+  } catch {
+    return null;
+  }
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [videoURL, setVideoURL] = useState<string | null>(null);
 
-  const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ percent: number; step: string } | null>(null);
 
-  const [analysis, setAnalysis] = useState<any | null>(null);
+  const [analysis, setAnalysis] = useState< AnalyzeVideoResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [showFullTranscript, setShowFullTranscript] = useState(false);
-
   useEffect(() => {
-    // cleanup object URLs on unmount/file change
     return () => {
       if (videoURL) URL.revokeObjectURL(videoURL);
     };
   }, [videoURL]);
 
-  // ----------------- upload + start flow -----------------
+  //helper functions to upload + start analysis and poll for status
   async function handleUploadAndAnalyze() {
     if (!file) return alert("Please choose a video file first.");
     setAnalysis(null);
     setProgress(null);
-    setJobId(null);
     setLoading(true);
 
     try {
@@ -114,7 +114,6 @@ export default function Home() {
       }
       const startData = await start.json();
       const jid = startData.job_id;
-      setJobId(jid);
 
       // 3) poll
       pollStatus(jid);
@@ -124,15 +123,7 @@ export default function Home() {
     }
   }
 
-  async function safeJson(resp: Response) {
-    try {
-      return await resp.json();
-    } catch {
-      return null;
-    }
-  }
-
-  // ----------------- polling -----------------
+  // polling
   function pollStatus(jid: string) {
     let stopped = false;
     const interval = setInterval(async () => {
@@ -182,8 +173,31 @@ export default function Home() {
     }, 1000 * 60 * 30);
   }
 
-  // ----------------- Render -----------------
-  const emotionTag = inferEmotionFromText(analysis?.transcript_text ?? null);
+  // emotions from backend
+  const mergedEmotions: MergedTextEmotion[] | undefined =
+    analysis && Array.isArray(analysis.merged_text_emotions)
+      ? analysis.merged_text_emotions
+      : undefined;
+
+  // pick the most frequent emotion label across merged_text_emotions
+  let dominantEmotionLabel: string | null = null;
+  if (mergedEmotions && mergedEmotions.length > 0) {
+    const counts: Record<string, number> = {};
+    for (const m of mergedEmotions) {
+      const key = (m.emotion || "neutral").toLowerCase();
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    const entries = Object.entries(counts);
+    if (entries.length > 0) {
+      entries.sort((a, b) => b[1] - a[1]);
+      dominantEmotionLabel = entries[0][0];
+    }
+  }
+
+  // fallback to text-based heuristic if no backend emotion
+  const emotionTag = dominantEmotionLabel
+    ? uiForEmotionLabel(dominantEmotionLabel)
+    : inferEmotionFromText(analysis?.transcript_text ?? null);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black p-8">
@@ -192,13 +206,17 @@ export default function Home() {
         <div className="lg:col-span-1 bg-white dark:bg-zinc-900 rounded-xl p-6 shadow">
           <h1 className="text-2xl font-semibold mb-4">Upload & Analyze</h1>
 
-          {/* fancy choose file block */}
           <label
             htmlFor="video-file"
             className="flex items-center justify-center flex-col gap-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg p-6 cursor-pointer hover:border-zinc-400"
           >
             <svg className="w-10 h-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h10a4 4 0 004-4V8a4 4 0 00-4-4h-3l-2-2H9L7 4H4a1 1 0 00-1 1v10z" />
+              <path
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 15a4 4 0 004 4h10a4 4 0 004-4V8a4 4 0 00-4-4h-3l-2-2H9L7 4H4a1 1 0 00-1 1v10z"
+              />
             </svg>
             <div className="text-sm text-zinc-600 dark:text-zinc-300">Click to choose a video file</div>
             <div className="text-xs text-zinc-400 dark:text-zinc-500">MP4, MOV, WebM — keep under ~200MB</div>
@@ -237,7 +255,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* progress */}
           {progress && (
             <div className="mt-4">
               <div className="flex justify-between mb-1">
@@ -245,7 +262,10 @@ export default function Home() {
                 <div className="text-sm text-zinc-600 dark:text-zinc-400">{progress.percent}%</div>
               </div>
               <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-3 rounded-full">
-                <div className="h-3 rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style={{ width: `${progress.percent}%` }} />
+                <div
+                  className="h-3 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
+                  style={{ width: `${progress.percent}%` }}
+                />
               </div>
             </div>
           )}
@@ -262,12 +282,14 @@ export default function Home() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-2xl font-semibold">Analysis Result</h2>
-              <div className="text-sm text-zinc-500">Scenes, transcript, captions</div>
+              <div className="text-sm text-zinc-500">Scenes, transcript, captions, emotions</div>
             </div>
 
             <div>
               <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${emotionTag.color}`}>
-                <span className={`text-sm font-medium ${emotionTag.textColor}`}>{emotionTag.label.toUpperCase()}</span>
+                <span className={`text-sm font-medium ${emotionTag.textColor}`}>
+                  {emotionTag.label.toUpperCase()}
+                </span>
               </div>
             </div>
           </div>
@@ -282,12 +304,15 @@ export default function Home() {
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* LEFT: transcript & scenes */}
               <div className="col-span-2 space-y-4">
-                {/* Transcript with emotion bars */}
+                {/* Transcript with emotion bars driven by merged_text_emotions if available */}
                 <div>
                   <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">Transcript</h3>
                   <div className="flex flex-col gap-1">
-                    {(analysis.transcript_segments || []).map((seg: any, idx: number) => {
-                      const emo = inferEmotionFromText(seg.text);
+                    {(analysis.transcript_segments || []).map((seg: TranscriptSegment, idx: number) => {
+                      const merged = mergedEmotions?.[idx];
+                      const emo = merged
+                        ? uiForEmotionLabel(merged.emotion)
+                        : inferEmotionFromText(seg.text);
                       return (
                         <div key={idx} className="flex items-center gap-2">
                           <div className={`w-2 h-6 rounded ${emo.color}`} title={emo.label}></div>
@@ -303,19 +328,25 @@ export default function Home() {
                   <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">Scenes</h3>
                   <div className="space-y-3">
                     {Array.isArray(analysis.combined_scenes) && analysis.combined_scenes.length > 0 ? (
-                      analysis.combined_scenes.map((s: any, idx: number) => (
+                      analysis.combined_scenes.map((s: CombinedScene, idx: number) => (
                         <div key={idx} className="p-3 border rounded-md bg-white dark:bg-zinc-800">
                           <div className="flex justify-between items-start gap-2">
                             <div>
                               <div className="text-sm font-semibold">{s.description ?? "Scene"}</div>
-                              <div className="text-xs text-zinc-500">{` ${s.start_time?.toFixed?.(1) ?? s.start_time}s — ${s.end_time?.toFixed?.(1) ?? s.end_time}s`}</div>
+                              <div className="text-xs text-zinc-500">
+                                {`${s.start_time?.toFixed?.(1) ?? s.start_time}s — ${
+                                  s.end_time?.toFixed?.(1) ?? s.end_time
+                                }s`}
+                              </div>
                             </div>
                             <div className="text-xs text-zinc-500">#{idx + 1}</div>
                           </div>
 
                           {Array.isArray(s.dialogue) && s.dialogue.length > 0 && (
                             <details className="mt-2">
-                              <summary className="text-xs text-zinc-600 cursor-pointer">Dialogue ({s.dialogue.length})</summary>
+                              <summary className="text-xs text-zinc-600 cursor-pointer">
+                                Dialogue ({s.dialogue.length})
+                              </summary>
                               <div className="mt-2 flex flex-col gap-1">
                                 {s.dialogue.map((d: string, i: number) => {
                                   const emo = inferEmotionFromText(d);
@@ -338,16 +369,57 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* RIGHT: top frame captions */}
+              {/* RIGHT: captions + emotion timeline */}
               <div>
-                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">Top frame captions</h3>
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">
+                  Top frame captions
+                </h3>
                 <div className="space-y-2">
                   {Array.isArray(analysis.frame_captions) && analysis.frame_captions.length > 0 ? (
                     analysis.frame_captions.slice(0, 12).map((c: string, i: number) => (
-                      <div key={i} className="text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 p-2 rounded">{c}</div>
+                      <div
+                        key={i}
+                        className="text-sm text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 p-2 rounded"
+                      >
+                        {c}
+                      </div>
                     ))
                   ) : (
                     <div className="text-sm text-zinc-500">No captions</div>
+                  )}
+                </div>
+
+                {/* Emotion timeline from merged_text_emotions */}
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 mb-2">
+                    Emotion timeline
+                  </h3>
+                  {mergedEmotions && mergedEmotions.length > 0 ? (
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {mergedEmotions.map((m: MergedTextEmotion, i: number) => {
+                        const ui = uiForEmotionLabel(m.emotion);
+                        return (
+                          <div key={i} className="flex items-start gap-2 text-xs">
+                            <div className={`w-2 h-5 rounded ${ui.color}`} title={ui.label}></div>
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <span className={`font-medium ${ui.textColor}`}>{ui.label}</span>
+                                {m.time != null && (
+                                  <span className="text-[10px] text-zinc-500">
+                                    {m.time.toFixed(1)}s
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-zinc-700 dark:text-zinc-200">
+                                {shortText(m.text, 120)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-zinc-500">No emotion data.</div>
                   )}
                 </div>
 

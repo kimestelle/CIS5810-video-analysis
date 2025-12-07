@@ -376,6 +376,7 @@ def analyze_video(
     emotions = analyze_emotions(video_path, sample_rate=1)
     merged = merge_text_and_emotions(transcript_text, emotions)
 
+    
     return {
         "transcript_text": transcript_text,
         "transcript_segments": transcript_segments,
