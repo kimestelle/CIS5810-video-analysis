@@ -77,13 +77,13 @@ export default function InfoPage() {
             <li>
               <span className="font-semibold">7. Estimate emotions</span>
               <br />
-              for each sampled frame, estimate a dominant emotion + scores (happy, sad, surprised, neutral, etc.).
+              For each sampled frame, estimate a dominant emotion + scores (happy, sad, surprised, neutral, etc.).
             </li>
 
             <li>
-              <span className="font-semibold">8. merge emotions with text.</span>
+              <span className="font-semibold">8. Merge emotions with text</span>
               <br />
-              split the transcript into sentences and pair each one with the closest emotion snapshot in time.
+              Split the transcript into sentences and pair each one with the closest emotion in that timeframe.
             </li>
           </ol>
         </section>
